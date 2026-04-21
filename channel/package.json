@@ -1,0 +1,45 @@
+{
+  "name": "@1panel-dev/clawswarm",
+  "version": "1.0.6",
+  "type": "module",
+  "description": "OpenClaw ClawSwarm channel plugin.",
+  "license": "GPL-3.0 license",
+  "homepage": "https://github.com/1Panel-dev/clawswarm/tree/main/channel",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1Panel-dev/clawswarm.git",
+    "directory": "channel"
+  },
+  "bugs": {
+    "url": "https://github.com/1Panel-dev/clawswarm/issues"
+  },
+  "keywords": ["openclaw", "channel", "plugin", "clawswarm", "agent"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "openclaw": {
+    "extensions": ["./dist/index.js"]
+  },
+  "files": ["dist", "skills", "openclaw.plugin.json", "README.md"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "ioredis": "^5.4.1",
+    "undici": "^6.19.8",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsup": "^8.3.0",
+    "typescript": "^5.8.2",
+    "vitest": "^2.1.9"
+  }
+}
