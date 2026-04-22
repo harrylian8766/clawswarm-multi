@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'clawswarm-multi',
-      script: 'dist/index.js',
-      cwd: '/home/harry/clawswarm-multi',
+      script: '/home/harry/clawswarm-multi/clawswarm-multi/dist/index.js',
+      cwd: '/home/harry/clawswarm-multi/clawswarm-multi',
       instances: 1,
       autorestart: true,
       watch: false,
