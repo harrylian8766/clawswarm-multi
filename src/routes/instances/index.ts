@@ -112,4 +112,61 @@ export const instanceRoutes: FastifyPluginAsync = async (app: FastifyInstance) =
     if (!deleted.length) return reply.status(404).send({ error: 'Instance not found' });
     return { status: 'ok', message: 'Instance offline' };
   });
+
+  // POST /api/v1/instances/byoa - BYOA 自注册（Agent 自己注册）
+  app.post('/instances/byoa', async (request, reply) => {
+    const tenantId = (request as any).tenantId;
+    const body = request.body as {
+      name: string;
+      openclaw_instance_id: string;
+      endpoint: string;
+      capabilities?: string[];
+      tools?: string[];
+      supported_models?: string[];
+      deployment_location?: string;
+      memory_context?: string;
+    };
+
+    if (!body.name || !body.openclaw_instance_id) {
+      return reply.status(400).send({ error: 'name and openclaw_instance_id are required' });
+    }
+
+    // 检查是否已存在同名 Agent，存在则更新
+    const existing = await app.db('agent_instances')
+      .where({ tenant_id: tenantId, openclaw_instance_id: body.openclaw_instance_id })
+      .first();
+
+    if (existing) {
+      const [updated] = await app.db('agent_instances')
+        .where({ id: existing.id })
+        .update({
+          name: body.name,
+          endpoint: body.endpoint || existing.endpoint,
+          capabilities: JSON.stringify(body.capabilities || (typeof existing.capabilities === 'string' ? JSON.parse(existing.capabilities) : existing.capabilities)),
+          tools: JSON.stringify(body.tools || (typeof existing.tools === 'string' ? JSON.parse(existing.tools) : existing.tools)),
+          supported_models: JSON.stringify(body.supported_models || (typeof existing.supported_models === 'string' ? JSON.parse(existing.supported_models) : existing.supported_models)),
+          status: 'active',
+          last_heartbeat: new Date(),
+        }).returning('*');
+      return { instance: updated, action: 'updated' };
+    }
+
+    // 新注册
+    const [instance] = await app.db('agent_instances')
+      .insert({
+        tenant_id: tenantId,
+        name: body.name,
+        openclaw_instance_id: body.openclaw_instance_id,
+        endpoint: body.endpoint || 'auto',
+        capabilities: JSON.stringify(body.capabilities || []),
+        tools: JSON.stringify(body.tools || []),
+        supported_models: JSON.stringify(body.supported_models || []),
+        deployment_location: body.deployment_location,
+        memory_context: body.memory_context,
+        status: 'active',
+        last_heartbeat: new Date(),
+      }).returning('*');
+
+    return reply.status(201).send({ instance, action: 'created' });
+  });
 };
