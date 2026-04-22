@@ -1,4 +1,6 @@
 import Fastify from 'fastify';
+import fastifyStatic from '@fastify/static';
+import path from 'path';
 import { registerRoutes } from './routes';
 import { tenantMiddleware } from './middleware/tenant';
 import dbPlugin from './db/models/plugin';
@@ -11,6 +13,15 @@ async function main() {
 
   // Register DB plugin
   await app.register(dbPlugin);
+
+  // Serve admin UI
+  await app.register(fastifyStatic, {
+    root: path.join(__dirname, '..', 'public'),
+    prefix: '/admin/',
+  });
+
+  // Redirect /admin to /admin/
+  app.get('/admin', (req, reply) => reply.redirect('/admin/'));
 
   // Tenant middleware
   app.addHook('onRequest', tenantMiddleware);

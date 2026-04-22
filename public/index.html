@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClawSwarm-Multi 管理后台</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+    .header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #f97316; }
+    .header h1 { font-size: 20px; color: #f97316; }
+    .header .status { font-size: 12px; color: #94a3b8; }
+    .container { display: flex; height: calc(100vh - 56px); }
+    .sidebar { width: 220px; background: #1e293b; padding: 12px 0; flex-shrink: 0; }
+    .sidebar a { display: block; padding: 10px 20px; color: #94a3b8; text-decoration: none; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+    .sidebar a:hover, .sidebar a.active { background: #334155; color: #f97316; }
+    .main { flex: 1; padding: 20px; overflow-y: auto; }
+    .card { background: #1e293b; border-radius: 8px; padding: 16px; margin-bottom: 16px; border: 1px solid #334155; }
+    .card h2 { font-size: 16px; color: #f97316; margin-bottom: 12px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .stat { background: #334155; border-radius: 8px; padding: 16px; text-align: center; }
+    .stat .num { font-size: 28px; font-weight: bold; color: #f97316; }
+    .stat .label { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #334155; padding: 8px 12px; text-align: left; color: #f97316; font-weight: 600; }
+    td { padding: 8px 12px; border-bottom: 1px solid #334155; }
+    tr:hover td { background: #334155; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .badge-active { background: #16a34a22; color: #4ade80; }
+    .badge-offline { background: #dc262622; color: #f87171; }
+    .badge-draining { background: #f59e0b22; color: #fbbf24; }
+    .badge-pending { background: #3b82f622; color: #60a5fa; }
+    .badge-completed { background: #16a34a22; color: #4ade80; }
+    .badge-failed { background: #dc262622; color: #f87171; }
+    .btn { padding: 6px 14px; border-radius: 4px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; }
+    .btn-primary { background: #f97316; color: #fff; }
+    .btn-primary:hover { background: #ea580c; }
+    .btn-sm { padding: 3px 8px; font-size: 11px; }
+    .empty { text-align: center; color: #64748b; padding: 40px; }
+    pre { background: #0f172a; padding: 8px; border-radius: 4px; font-size: 12px; overflow-x: auto; max-height: 200px; }
+    .msg-human { color: #60a5fa; }
+    .msg-agent { color: #4ade80; }
+    #tenant-input { display: flex; gap: 8px; margin-bottom: 12px; }
+    #tenant-input input { flex: 1; padding: 6px 10px; border-radius: 4px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🦞 ClawSwarm-Multi 管理后台</h1>
+    <div class="status" id="health">Connecting...</div>
+  </div>
+  <div class="container">
+    <div class="sidebar">
+      <a class="active" onclick="showTab('dashboard')">📊 仪表盘</a>
+      <a onclick="showTab('agents')">🤖 Agents</a>
+      <a onclick="showTab('groups')">👥 Groups</a>
+      <a onclick="showTab('messages')">💬 Messages</a>
+      <a onclick="showTab('tasks')">📋 Tasks</a>
+      <a onclick="showTab('skills')">⚡ Skills</a>
+      <a onclick="showTab('api')">🔌 API</a>
+    </div>
+    <div class="main" id="content">Loading...</div>
+  </div>
+<script>
+const BASE = window.location.origin;
+let tenantId = localStorage.getItem('cs-tenant-id') || '';
+
+function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (tenantId) headers['x-tenant-id'] = tenantId;
+  return fetch(BASE + path, { ...opts, headers: { ...headers, ...opts.headers } }).then(r => r.json());
+}
+
+function showTab(tab) {
+  document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+  event.target.classList.add('active');
+  const renderers = { dashboard: renderDashboard, agents: renderAgents, groups: renderGroups, messages: renderMessages, tasks: renderTasks, skills: renderSkills, api: renderAPI };
+  (renderers[tab] || renderDashboard)();
+}
+
+async function renderDashboard() {
+  const el = document.getElementById('content');
+  el.innerHTML = '<div class="empty">Loading...</div>';
+  const [health, tenants, agents, groups, tasks] = await Promise.all([
+    api('/health'), api('/api/v1/tenants/' + (tenantId || 'x')),
+    tenantId ? api('/api/v1/instances') : { instances: [] },
+    tenantId ? api('/api/v1/groups') : { groups: [] },
+    tenantId ? api('/api/v1/tasks') : { tasks: [] },
+  ]);
+  const activeAgents = (agents.instances || []).filter(a => a.status === 'active').length;
+  const pendingTasks = (tasks.tasks || []).filter(t => t.status === 'pending').length;
+  el.innerHTML = `
+    <div id="tenant-input">
+      <input id="tid" placeholder="输入 Tenant ID" value="${tenantId}">
+      <button class="btn btn-primary" onclick="setTenant()">连接</button>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><div class="num">${(agents.instances||[]).length}</div><div class="label">Agents</div></div>
+      <div class="stat"><div class="num">${activeAgents}</div><div class="label">Active</div></div>
+      <div class="stat"><div class="num">${(groups.groups||[]).length}</div><div class="label">Groups</div></div>
+      <div class="stat"><div class="num">${(tasks.tasks||[]).length}</div><div class="label">Tasks</div></div>
+    </div>
+    <div class="card"><h2>Agent Status</h2><table><tr><th>Name</th><th>Status</th><th>Capabilities</th><th>Last Heartbeat</th></tr>
+    ${(agents.instances||[]).map(a => `<tr><td>${a.name}</td><td><span class="badge badge-${a.status}">${a.status}</span></td><td>${(typeof a.capabilities==='string'?JSON.parse(a.capabilities):a.capabilities).join(', ')}</td><td>${a.last_heartbeat?new Date(a.last_heartbeat).toLocaleString():'-'}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">No agents</td></tr>'}
+    </table></div>`;
+}
+
+async function renderAgents() {
+  const { instances } = await api('/api/v1/instances');
+  document.getElementById('content').innerHTML = `
+    <div class="card"><h2>Agents (${instances.length})</h2>
+    <table><tr><th>Name</th><th>OpenClaw ID</th><th>Status</th><th>Capabilities</th><th>Endpoint</th><th>Heartbeat</th></tr>
+    ${instances.map(a => `<tr><td><b>${a.name}</b></td><td>${a.openclaw_instance_id}</td><td><span class="badge badge-${a.status}">${a.status}</span></td><td>${(typeof a.capabilities==='string'?JSON.parse(a.capabilities):a.capabilities).join(', ')}</td><td>${a.endpoint}</td><td>${a.last_heartbeat?new Date(a.last_heartbeat).toLocaleString():'-'}</td></tr>`).join('')}
+    </table></div>
+    <div class="card"><h2>BYOA 自注册</h2>
+    <p style="color:#94a3b8;font-size:13px">POST /api/v1/instances/byoa</p></div>`;
+}
+
+async function renderGroups() {
+  const { groups } = await api('/api/v1/groups');
+  let html = `<div class="card"><h2>Groups (${groups.length})</h2><table><tr><th>Name</th><th>Created By</th><th>Max Members</th><th>Created</th></tr>`;
+  for (const g of groups) {
+    const detail = await api('/api/v1/groups/' + g.id);
+    const members = (detail.members || []).map(m => m.member_id).join(', ');
+    html += `<tr><td><b>${g.name}</b></td><td>${g.created_by}</td><td>${g.max_members}</td><td>${new Date(g.created_at).toLocaleDateString()}</td></tr>
+    <tr><td colspan="4" style="padding-left:24px;color:#94a3b8;font-size:12px">Members: ${members || 'none'}</td></tr>`;
+  }
+  html += '</table></div>';
+  document.getElementById('content').innerHTML = html;
+}
+
+async function renderMessages() {
+  const { groups } = await api('/api/v1/groups');
+  const gid = groups[0]?.id;
+  if (!gid) { document.getElementById('content').innerHTML = '<div class="empty">No groups found</div>'; return; }
+  const { messages } = await api('/api/v1/messages?group_id=' + gid + '&limit=50');
+  document.getElementById('content').innerHTML = `
+    <div class="card"><h2>Messages (Group: ${groups[0].name})</h2>
+    <div style="max-height:600px;overflow-y:auto">
+    ${messages.map(m => `<div style="margin-bottom:8px;padding:8px;background:#0f172a;border-radius:4px">
+      <span class="${m.sender_type==='agent'?'msg-agent':'msg-human'}" style="font-weight:600">${m.sender_type}:${m.sender_id}</span>
+      <span style="color:#64748b;font-size:11px;margin-left:8px">${new Date(m.created_at).toLocaleString()}</span>
+      <div style="margin-top:4px">${m.content.substring(0,300)}${m.content.length>300?'...':''}</div>
+    </div>`).join('') || '<div class="empty">No messages</div>'}
+    </div></div>`;
+}
+
+async function renderTasks() {
+  const { tasks } = await api('/api/v1/tasks');
+  document.getElementById('content').innerHTML = `
+    <div class="card"><h2>Tasks (${tasks.length})</h2>
+    <table><tr><th>Name</th><th>Type</th><th>Status</th><th>Retries</th><th>Created</th></tr>
+    ${tasks.map(t => `<tr><td>${t.task_name||'-'}</td><td>${t.task_type}</td><td><span class="badge badge-${t.status}">${t.status}</span></td><td>${t.retry_count}/${t.max_retries}</td><td>${new Date(t.created_at).toLocaleString()}</td></tr>`).join('')}
+    </table></div>`;
+}
+
+async function renderSkills() {
+  const { skills } = await api('/api/v1/skills');
+  document.getElementById('content').innerHTML = `
+    <div class="card"><h2>Skills (${skills.length})</h2>
+    <table><tr><th>Name</th><th>Type</th><th>Usage</th><th>Tags</th><th>Created</th></tr>
+    ${(skills||[]).map(s => `<tr><td><b>${s.name}</b></td><td>${s.skill_type||'-'}</td><td>${s.usage_count}</td><td>${(typeof s.tags==='string'?JSON.parse(s.tags):s.tags).join(', ')}</td><td>${new Date(s.created_at).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">No skills</td></tr>'}
+    </table></div>`;
+}
+
+function renderAPI() {
+  document.getElementById('content').innerHTML = `
+    <div class="card"><h2>API Reference</h2>
+    <pre>
+POST /api/v1/tenants                    创建租户
+GET  /api/v1/instances                  列出 Agents
+POST /api/v1/instances                  注册 Agent
+POST /api/v1/instances/byoa             BYOA 自注册
+POST /api/v1/instances/:id/heartbeat    心跳
+GET  /api/v1/groups                     列出 Groups
+POST /api/v1/groups                     创建 Group
+GET  /api/v1/messages?group_id=xxx      查询消息
+POST /api/v1/messages                   发送消息（智能路由）
+GET  /api/v1/tasks                      列出 Tasks
+POST /api/v1/tasks                      创建 Task
+GET  /api/v1/skills                     搜索 Skills
+POST /api/v1/skills                     注册 Skill
+    </pre>
+    <p style="color:#94a3b8;font-size:13px;margin-top:12px">Header: x-tenant-id: &lt;tenant-uuid&gt;</p></div>`;
+}
+
+function setTenant() {
+  tenantId = document.getElementById('tid').value.trim();
+  localStorage.setItem('cs-tenant-id', tenantId);
+  renderDashboard();
+}
+
+// Init
+api('/health').then(h => {
+  document.getElementById('health').textContent = `✅ ${h.service} v${h.version}`;
+}).catch(() => {
+  document.getElementById('health').textContent = '❌ Offline';
+});
+renderDashboard();
+</script>
+</body>
+</html>
