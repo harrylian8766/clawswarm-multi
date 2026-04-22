@@ -1,106 +1,127 @@
 /**
- * OpenClaw Client SDK
- * Phase 0 PoC: 直接使用 OpenClaw Session API
+ * OpenClaw Gateway HTTP Client
+ * Phase 0 PoC 验证通过 ✅
+ * 
+ * 通信方式: OpenAI 兼容 HTTP API
+ * 端点: POST /v1/chat/completions
+ * 认证: Bearer token
+ * 模型: "openclaw" 或 "openclaw/<agentId>"
  */
 
-const GATEWAY_URL = process.env.OPENCLAW_GATEWAY_URL || 'http://localhost:18789';
+export interface OpenClawHTTPConfig {
+  gatewayUrl: string; // e.g. http://localhost:18789
+  authToken: string;
+  defaultAgent?: string; // agent id, default "main"
+}
 
-export interface OpenClawAgent {
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatCompletionResponse {
   id: string;
-  name: string;
-  description?: string;
-}
-
-export interface SendMessageOptions {
-  agentId: string;
-  message: string;
-  threadId?: string;
-  context?: Record<string, any>;
-  onChunk?: (chunk: string) => void;
-}
-
-export interface SendMessageResult {
-  taskId: string;
-  response: string;
-  status: 'done' | 'failed';
-}
-
-/**
- * 列出 OpenClaw Gateway 上的所有 Agent
- */
-export async function listAgents(): Promise<OpenClawAgent[]> {
-  try {
-    const res = await fetch(`${GATEWAY_URL}/api/agents`);
-    if (!res.ok) return [];
-    const data = await res.json() as { agents?: OpenClawAgent[] };
-    return data.agents || [];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * 向指定 Agent 发送消息
- * Phase 0 PoC: 使用 sessions_send 协议
- */
-export async function sendMessage(opts: SendMessageOptions): Promise<SendMessageResult> {
-  const { agentId, message, threadId, context } = opts;
-
-  // Phase 0 PoC: 调用 OpenClaw Gateway 的 session API
-  // 实际需要通过 OpenClaw 的 sessions API 发送消息
-  const response = await fetch(`${GATEWAY_URL}/api/sessions/send`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      agent_id: agentId,
-      message,
-      thread_id: threadId,
-      context,
-    }),
-  });
-
-  if (!response.ok) {
-    return {
-      taskId: `error-${Date.now()}`,
-      response: '',
-      status: 'failed',
-    };
-  }
-
-  const data = await response.json() as { task_id?: string; response?: string; status?: string };
-  return {
-    taskId: data.task_id || `task-${Date.now()}`,
-    response: data.response || '',
-    status: (data.status === 'failed' ? 'failed' : 'done') as 'done' | 'failed',
+  choices: Array<{
+    index: number;
+    message: { role: string; content: string };
+    finish_reason: string;
+  }>;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
   };
 }
 
-/**
- * 获取 Agent 回复状态
- */
-export async function getReply(taskId: string): Promise<{ status: string; response?: string }> {
-  try {
-    const res = await fetch(`${GATEWAY_URL}/api/sessions/reply/${taskId}`);
-    if (!res.ok) return { status: 'unknown' };
-    return await res.json() as { status: string; response?: string };
-  } catch {
-    return { status: 'error' };
+export class OpenClawHTTPClient {
+  private config: OpenClawHTTPConfig;
+
+  constructor(config: OpenClawHTTPConfig) {
+    this.config = config;
+  }
+
+  /**
+   * 发送消息给指定 agent，获取回复
+   */
+  async sendToAgent(
+    message: string,
+    options?: {
+      agentId?: string;
+      systemPrompt?: string;
+      maxTokens?: number;
+      history?: ChatMessage[];
+    }
+  ): Promise<ChatCompletionResponse> {
+    const agent = options?.agentId || this.config.defaultAgent || 'main';
+    const model = `openclaw/${agent}`;
+
+    const messages: ChatMessage[] = [];
+    if (options?.systemPrompt) {
+      messages.push({ role: 'system', content: options.systemPrompt });
+    }
+    if (options?.history) {
+      messages.push(...options.history);
+    }
+    messages.push({ role: 'user', content: message });
+
+    const url = `${this.config.gatewayUrl}/v1/chat/completions`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.config.authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens: options?.maxTokens || 4096,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`OpenClaw HTTP ${res.status}: ${err}`);
+    }
+
+    return (await res.json()) as ChatCompletionResponse;
+  }
+
+  /**
+   * 简单 ping 测试
+   */
+  async ping(): Promise<string> {
+    const res = await this.sendToAgent('ping', { maxTokens: 20 });
+    return res.choices[0]?.message?.content || 'no response';
+  }
+
+  /**
+   * 列出可用模型（通过 /v1/models）
+   */
+  async listModels(): Promise<string[]> {
+    const url = `${this.config.gatewayUrl}/v1/models`;
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${this.config.authToken}` },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json() as { data: Array<{ id: string }> };
+    return data.data.map((m) => m.id);
   }
 }
 
 /**
- * 注册 OpenClaw 实例到 ClawSwarm-Multi
+ * 从 openclaw.json 读取配置，创建客户端
  */
-export async function registerInstance(instanceInfo: {
-  name: string;
-  endpoint: string;
-  capabilities: string[];
-  tools: string[];
-  supported_models: string[];
-  deployment_location?: string;
-  memory_context?: string;
-}) {
-  // 这个函数由 ClawSwarm-Multi 服务端调用
-  // 将实例注册到本地数据库（见 instances 路由）
-  return instanceInfo;
+export function createClientFromConfig(configPath?: string): OpenClawHTTPClient {
+  const fs = require('fs');
+  const path = require('path');
+  const resolvedPath = configPath || path.join(process.env.HOME || '/home/harry', '.openclaw', 'openclaw.json');
+  
+  const config = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
+  const gateway = config.gateway || {};
+  
+  return new OpenClawHTTPClient({
+    gatewayUrl: `http://127.0.0.1:${gateway.port || 18789}`,
+    authToken: gateway.auth?.token || '',
+    defaultAgent: 'main',
+  });
 }

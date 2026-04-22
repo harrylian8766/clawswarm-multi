@@ -1,25 +1,42 @@
+/**
+ * Messages route - 核心消息路由
+ * Phase 0 PoC: 通过 OpenClaw HTTP API 调用 agent
+ */
 import { FastifyInstance, FastifyPluginAsync } from 'fastify';
+import { CoordinatorMatcher } from '../../coordinator/matcher';
+
+const matcher = new CoordinatorMatcher();
 
 export const messageRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
-  app.get('/groups/:groupId/messages', async (request) => {
-    const { groupId } = request.params as { groupId: string };
-    return { groupId, messages: [], message: 'Messages list - implementation pending' };
-  });
+  // POST /api/v1/messages
+  app.post('/messages', async (request, reply) => {
+    const { message, group_id, thread_id, history } = request.body as {
+      message: string;
+      group_id?: string;
+      thread_id?: string;
+      history?: Array<{ role: string; content: string }>;
+    };
 
-  app.post('/groups/:groupId/messages', async (request, reply) => {
-    const { groupId } = request.params as { groupId: string };
-    const body = request.body as any;
-    reply.code(201).send({ groupId, message: body, status: 'pending' });
-  });
+    const tenantId = (request as any).tenantId || 'default';
 
-  app.get('/groups/:groupId/messages/stream', async (request, reply) => {
-    // SSE 流式推送
-    reply.raw.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-    });
-    reply.raw.write('data: {"status":"connected","message":"SSE stream - implementation pending"}\n\n');
-    // TODO: 实现真实的 SSE 推送
+    if (!message) {
+      return reply.status(400).send({ error: 'message is required' });
+    }
+
+    try {
+      const result = await matcher.dispatch(message, tenantId, { history });
+      return {
+        tenant_id: tenantId,
+        agent_id: result.agentId,
+        response: result.response,
+        tokens_used: result.tokens,
+        thread_id: thread_id || `thread-${Date.now()}`,
+      };
+    } catch (err: any) {
+      return reply.status(500).send({
+        error: 'Agent dispatch failed',
+        details: err.message,
+      });
+    }
   });
 };

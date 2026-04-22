@@ -1,90 +1,68 @@
 /**
- * Coordinator: Skill Profile Matcher
- * V2 MVP: @mention + 广播模式
+ * Coordinator Matcher: Skill Profile 匹配
+ * 
+ * V2: 使用 OpenClaw HTTP API 调用 agent
+ * Phase 0 PoC 验证通过 ✅
  */
 
-import { AgentInstance } from '../db/models/agent_instance';
+import { OpenClawHTTPClient, createClientFromConfig } from '../openclaw/client';
 
-export interface AgentCandidate {
-  id: string;
-  name: string;
-  capabilities: string[];
-  tools: string[];
-  status: string;
-  current_task_count?: number;
+export interface MatchResult {
+  agentId: string;
+  reason: string;
+  confidence: number;
 }
 
-export interface TaskRequirements {
-  capabilities?: string[];
-  tools?: string[];
-  task_type?: string;
-}
+export class CoordinatorMatcher {
+  private client: OpenClawHTTPClient;
 
-/**
- * 根据 Agent capabilities/tools 动态匹配最佳执行者
- * MVP 策略: @mention 精确路由 > 广播
- */
-export async function matchBestAgent(
-  taskRequirements: TaskRequirements,
-  availableAgents: AgentCandidate[]
-): Promise<AgentCandidate | null> {
-  if (availableAgents.length === 0) return null;
-
-  // 过滤离线 Agent
-  const activeAgents = availableAgents.filter((a) => a.status === 'active');
-  if (activeAgents.length === 0) return null;
-
-  // MVP: 如果有 capabilities/tools 要求才做匹配
-  if (!taskRequirements.capabilities && !taskRequirements.tools) {
-    // 无明确要求，返回第一个活跃 Agent
-    return activeAgents[0];
+  constructor(client?: OpenClawHTTPClient) {
+    this.client = client || createClientFromConfig();
   }
 
-  const scored = activeAgents.map((agent) => {
-    let score = 0;
-
-    if (taskRequirements.capabilities) {
-      const capMatch = taskRequirements.capabilities.filter((cap) =>
-        agent.capabilities.includes(cap)
-      ).length;
-      score += capMatch * 10;
+  /**
+   * 根据消息内容匹配最佳 agent
+   * MVP: 直接路由到 main agent
+   */
+  matchAgent(message: string, tenantId: string): MatchResult {
+    // MVP: 所有消息路由到 main
+    // 后续: 根据 @mention、skill profile、capability 匹配
+    const mentionMatch = message.match(/@(\w+)/);
+    if (mentionMatch) {
+      return {
+        agentId: mentionMatch[1],
+        reason: `@mention 匹配: ${mentionMatch[1]}`,
+        confidence: 1.0,
+      };
     }
 
-    if (taskRequirements.tools) {
-      const toolMatch = taskRequirements.tools.filter((tool) =>
-        agent.tools.includes(tool)
-      ).length;
-      score += toolMatch * 5;
-    }
-
-    // 负载加权（prefer less loaded）
-    score -= (agent.current_task_count || 0) * 0.5;
-
-    return { agent, score };
-  });
-
-  const sorted = scored.sort((a, b) => b.score - a.score);
-  return sorted[0]?.agent || null;
-}
-
-/**
- * 解析消息中的 @mention，获取目标 Agent
- * 返回 null 表示广播模式
- */
-export function parseMention(message: string): string | null {
-  // 支持格式: @agent-name 或 @[agent-id]
-  const mentionMatch = message.match(/@\[?([^\]]+)\]?/);
-  if (mentionMatch) {
-    return mentionMatch[1].trim();
+    return {
+      agentId: 'main',
+      reason: '默认路由',
+      confidence: 0.5,
+    };
   }
-  return null; // 无 @mention → 广播
-}
 
-/**
- * 判断是否为广播消息
- */
-export function isBroadcastMessage(message: string): boolean {
-  const broadcastKeywords = ['大家', 'everyone', 'all', '各位', '所有人'];
-  const lowerMsg = message.toLowerCase();
-  return broadcastKeywords.some((kw) => lowerMsg.includes(kw));
+  /**
+   * 发送消息给匹配的 agent 并获取回复
+   */
+  async dispatch(
+    message: string,
+    tenantId: string,
+    options?: { systemPrompt?: string; history?: Array<{ role: string; content: string }> }
+  ): Promise<{ agentId: string; response: string; tokens: number }> {
+    const match = this.matchAgent(message, tenantId);
+    
+    const result = await this.client.sendToAgent(message, {
+      agentId: match.agentId,
+      systemPrompt: options?.systemPrompt,
+      history: options?.history as any,
+    });
+
+    return {
+      agentId: match.agentId,
+      response: result.choices[0]?.message?.content || '',
+      tokens: result.usage?.total_tokens || 0,
+    };
+  }
 }
