@@ -1,24 +1,41 @@
+/**
+ * Members 路由 - 成员查询
+ * 注意: 添加成员由 groups/:id/members 处理
+ */
 import { FastifyInstance, FastifyPluginAsync } from 'fastify';
 
 export const memberRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
-  app.get('/groups/:groupId/members', async (request) => {
-    const { groupId } = request.params as { groupId: string };
-    return { groupId, members: [], message: 'Members list - implementation pending' };
+
+  // GET /api/v1/members?group_id=xxx - 查询群组成员
+  app.get('/members', async (request) => {
+    const tenantId = (request as any).tenantId;
+    const { group_id } = request.query as { group_id?: string };
+
+    if (!group_id) {
+      return { error: 'group_id query parameter is required' };
+    }
+
+    const members = await app.db('group_members')
+      .where({ tenant_id: tenantId, group_id })
+      .select('*');
+
+    return {
+      members: members.map((m) => ({
+        ...m,
+        capabilities: typeof m.capabilities === 'string' ? JSON.parse(m.capabilities) : m.capabilities,
+      })),
+    };
   });
 
-  app.post('/groups/:groupId/members', async (request, reply) => {
-    const { groupId } = request.params as { groupId: string };
-    const body = request.body as any;
-    reply.code(201).send({ groupId, member: body, message: 'Member added - implementation pending' });
-  });
+  // DELETE /api/v1/members/:id - 移除成员
+  app.delete<{ Params: { id: string } }>('/members/:id', async (request) => {
+    const tenantId = (request as any).tenantId;
+    const { id } = request.params;
 
-  app.delete('/groups/:groupId/members/:memberId', async (request) => {
-    const { groupId, memberId } = request.params as { groupId: string; memberId: string };
-    return { groupId, memberId, message: 'Member removed - implementation pending' };
-  });
+    await app.db('group_members')
+      .where({ tenant_id: tenantId, id })
+      .del();
 
-  app.put('/groups/:groupId/members/:memberId/capabilities', async (request) => {
-    const { groupId, memberId } = request.params as { groupId: string; memberId: string };
-    return { groupId, memberId, message: 'Capabilities update - implementation pending' };
+    return { status: 'ok' };
   });
 };

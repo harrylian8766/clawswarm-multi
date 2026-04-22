@@ -1,36 +1,21 @@
 import Fastify from 'fastify';
-import cors from '@fastify/cors';
-import jwt from '@fastify/jwt';
-import { tenantMiddleware } from './middleware/tenant';
 import { registerRoutes } from './routes';
-import { dbPlugin } from './db/models/plugin';
+import { tenantMiddleware } from './middleware/tenant';
+import dbPlugin from './db/models/plugin';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 
 async function main() {
-  const app = Fastify({
-    logger: {
-      level: process.env.LOG_LEVEL || 'info',
-    },
-  });
+  const app = Fastify({ logger: true });
 
-  // 注册插件
-  await app.register(cors, { origin: true });
-  await app.register(jwt, {
-    secret: process.env.JWT_SECRET || 'dev-secret-change-me',
-  });
-
-  // 数据库插件
+  // Register DB plugin
   await app.register(dbPlugin);
 
-  // 租户中间件
+  // Tenant middleware
   app.addHook('onRequest', tenantMiddleware);
 
-  // 路由
-  await registerRoutes(app);
-
-  // 健康检查
+  // Health check
   app.get('/health', async () => ({
     status: 'ok',
     service: 'clawswarm-multi',
@@ -38,14 +23,15 @@ async function main() {
     timestamp: new Date().toISOString(),
   }));
 
-  // 启动
-  try {
-    await app.listen({ port: PORT, host: HOST });
-    console.log(`🦞 ClawSwarm-Multi V2 running on http://${HOST}:${PORT}`);
-  } catch (err) {
-    app.log.error(err);
-    process.exit(1);
-  }
+  // API routes
+  await registerRoutes(app);
+
+  // Start
+  await app.listen({ port: PORT, host: HOST });
+  console.log(`🦞 ClawSwarm-Multi V2 running on http://${HOST}:${PORT}`);
 }
 
-main();
+main().catch((err) => {
+  console.error('Failed to start:', err);
+  process.exit(1);
+});
