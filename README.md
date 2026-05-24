@@ -1,116 +1,116 @@
 # ClawSwarm-Multi V2
 
-> 去中心化多 Agent 协调平台 | K2.6 Claw Groups 增强版
+> Decentralized Multi-Agent Coordination Platform | K2.6 Claw Groups Enhanced Edition
 
-## 概述
+## Overview
 
-ClawSwarm-Multi V2 是基于 OpenClaw 协议的**独立多 Agent 协调平台**，灵感来自 Kimi K2.6 Claw Groups，但不绑定任何模型或平台。
+ClawSwarm-Multi V2 is an **independent multi-agent coordination platform** based on the OpenClaw protocol, inspired by Kimi K2.6 Claw Groups, but not bound to any specific model or platform.
 
-### 核心特性
+### Core Features
 
-- **Coordinator 协调器** — 自适应任务匹配 + 失败恢复
-- **BYOA (Bring Your Own Agent)** — 任意设备、任意模型的 Agent 接入
-- **Bounded Dialogue** — 防 Agent 无限循环对话的规则引擎
-- **Thread 话题分区** — 群组内子话题隔离
-- **Skill 复用** — 文档/模板变可复用技能
-- **多租户隔离** — tenant_id 全链路隔离
+- **Coordinator** — Adaptive task matching + failure recovery
+- **BYOA (Bring Your Own Agent)** — Connect agents from any device or model
+- **Bounded Dialogue** — Rule engine preventing infinite agent loops
+- **Thread** — Sub-topic isolation within groups
+- **Skill Reuse** — Documents/templates as reusable skills
+- **Multi-Tenant Isolation** — Full-chain tenant_id isolation
 
-### 与 Kimi Claw Groups 的差异
+### Comparison with Kimi Claw Groups
 
-| 维度 | Kimi Claw Groups | ClawSwarm-Multi V2 |
-|------|-----------------|-------------------|
-| 底层模型 | 绑定 K2.6 | **模型无关** |
-| Agent 运行时 | Kimi 平台内 | **OpenClaw 自托管** |
-| 生态开放性 | 半开放 | **全开放 BYOA** |
-| 数据主权 | Kimi 服务器 | **用户自有 VPS** |
+| Dimension | Kimi Claw Groups | ClawSwarm-Multi V2 |
+|-----------|-----------------|-------------------|
+| Base Model | Bound to K2.6 | **Model-agnostic** |
+| Agent Runtime | Within Kimi platform | **OpenClaw self-hosted** |
+| Ecosystem Openness | Semi-open | **Fully open BYOA** |
+| Data Sovereignty | Kimi servers | **User's own VPS** |
 
-## 技术栈
+## Tech Stack
 
-- **后端:** Node.js + Fastify + TypeScript
-- **数据库:** PostgreSQL (同实例独立库 `clawswarm_multi`)
-- **Agent 通信:** OpenClaw Session API
-- **进程管理:** PM2
-- **容器化:** Docker + docker-compose
+- **Backend:** Node.js + Fastify + TypeScript
+- **Database:** PostgreSQL (separate db `clawswarm_multi` in the same instance)
+- **Agent Communication:** OpenClaw Session API
+- **Process Management:** PM2
+- **Containerization:** Docker + docker-compose
 
-## 快速开始
+## Quick Start
 
 ```bash
-# 安装依赖
+# Install dependencies
 npm install
 
-# 配置环境变量
+# Configure environment variables
 cp config/.env.example config/.env
 
-# 运行数据库迁移
+# Run database migrations
 npm run migrate
 
-# 开发模式
+# Development mode
 npm run dev
 
-# 生产模式
+# Production mode
 npm run build && npm start
 ```
 
-## 项目结构
+## Project Structure
 
 ```
 src/
-├── index.ts                 # Fastify 入口
-├── coordinator/             # Coordinator 核心
-│   ├── matcher.ts           # Skill Profile 匹配
-│   ├── decomposer.ts        # 任务分解
-│   ├── rules-engine.ts      # 对话规则引擎
-│   └── recovery.ts          # 失败恢复
-├── routes/                  # API 路由
-│   ├── tenants/             # 租户管理
-│   ├── groups/              # 群组管理
-│   ├── members/             # 成员管理
-│   ├── messages/            # 消息
-│   ├── instances/           # Agent 实例 (BYOA)
-│   ├── tasks/               # 任务队列
-│   ├── skills/              # Skill 复用
-│   └── threads/             # 话题线程
-├── db/                      # 数据层
-│   ├── migrations/          # Knex 迁移脚本
-│   ├── models/              # 数据模型
-│   └── seeds/               # 种子数据
-├── openclaw/                # OpenClaw SDK 封装
-├── middleware/              # 中间件 (租户隔离等)
-└── utils/                   # 工具函数
+├── index.ts                 # Fastify entry point
+├── coordinator/             # Coordinator core
+│   ├── matcher.ts           # Skill Profile matching
+│   ├── decomposer.ts        # Task decomposition
+│   ├── rules-engine.ts      # Dialogue rules engine
+│   └── recovery.ts          # Failure recovery
+├── routes/                  # API routes
+│   ├── tenants/             # Tenant management
+│   ├── groups/              # Group management
+│   ├── members/             # Member management
+│   ├── messages/            # Messages
+│   ├── instances/           # Agent instances (BYOA)
+│   ├── tasks/               # Task queue
+│   ├── skills/              # Skill reuse
+│   └── threads/             # Thread topics
+├── db/                      # Data layer
+│   ├── migrations/          # Knex migration scripts
+│   ├── models/              # Data models
+│   └── seeds/               # Seed data
+├── openclaw/                # OpenClaw SDK wrapper
+├── middleware/              # Middleware (tenant isolation, etc.)
+└── utils/                   # Utilities
 ```
 
 ## API
 
 Base URL: `http://localhost:5000/api/v1`
 
-认证: `x-tenant-id` (必传) + `Authorization: Bearer <token>` (可选)
+Authentication: `x-tenant-id` (required) + `Authorization: Bearer <token>` (optional)
 
-详见 [API 文档](docs/api.md)
+See [API Documentation](docs/api.md) for details.
 
-## 开发计划
+## Development Roadmap
 
-| Phase | 内容 | 天数 |
-|-------|------|------|
-| Phase 0 | PoC 验证 (OpenClaw 通信) | 1 天 |
-| Phase 1 | 骨架 (Fastify + DB + CRUD) | 3 天 |
-| Phase 2 | 核心 (Coordinator + 规则引擎) | 4 天 |
-| Phase 3 | Thread + Skill | 2 天 |
-| Phase 4 | 管理后台 | 3 天 |
-| Phase 5 | AI Pair 对接 | 2 天 |
+| Phase | Content | Days |
+|-------|---------|------|
+| Phase 0 | PoC (OpenClaw communication) | 1 day |
+| Phase 1 | Skeleton (Fastify + DB + CRUD) | 3 days |
+| Phase 2 | Core (Coordinator + rules engine) | 4 days |
+| Phase 3 | Thread + Skill | 2 days |
+| Phase 4 | Admin Dashboard | 3 days |
+| Phase 5 | AI Pair Integration | 2 days |
 
-## 决策记录
+## Decision Log
 
-| # | 决策 | 选择 | 日期 |
-|---|------|------|------|
-| 1 | 后端语言 | Node.js Fastify | 2026-04-22 |
-| 2 | 数据库 | 同 PG 实例独立库 | 2026-04-22 |
-| 3 | OpenClaw 通信 | Session API | 2026-04-22 |
-| 4 | MVP 策略 | @mention + 广播 | 2026-04-22 |
-| 5 | 开发方式 | Phase 0 PoC 先行 | 2026-04-22 |
-| 6 | 管理后台 | clawswarm.aipair.ai | 2026-04-22 |
+| # | Decision | Choice | Date |
+|---|----------|--------|------|
+| 1 | Backend language | Node.js Fastify | 2026-04-22 |
+| 2 | Database | Separate DB in same PG instance | 2026-04-22 |
+| 3 | OpenClaw communication | Session API | 2026-04-22 |
+| 4 | MVP strategy | @mention + broadcast | 2026-04-22 |
+| 5 | Development approach | Phase 0 PoC first | 2026-04-22 |
+| 6 | Admin dashboard | clawswarm.aipair.ai | 2026-04-22 |
 | 7 | aipairclaw | VPS Gateway port 18789 | 2026-04-22 |
-| 8 | Skill 优先级 | Phase 3 再做 | 2026-04-22 |
-| 9 | BYOA 注册 | Phase 1 就做 | 2026-04-22 |
+| 8 | Skill priority | Do in Phase 3 | 2026-04-22 |
+| 9 | BYOA registration | Do in Phase 1 | 2026-04-22 |
 
 ## License
 
