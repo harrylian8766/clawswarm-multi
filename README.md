@@ -2,9 +2,21 @@
 
 > Decentralized Multi-Agent Coordination Platform | K2.6 Claw Groups Enhanced Edition
 
+---
+
+## Philosophy
+
+AI agents should be composable, portable, and interoperable.
+
+The future of AI is not monolithic models that do everything — it's specialized agents that each excel at one thing, connected through standard protocols.
+
+---
+
 ## Overview
 
 ClawSwarm-Multi V2 is an **independent multi-agent coordination platform** based on the OpenClaw protocol, inspired by Kimi K2.6 Claw Groups, but not bound to any specific model or platform.
+
+This is not a smarter monolithic AI — it's a **decentralized multi-agent coordination platform**.
 
 ### Core Features
 
@@ -23,6 +35,33 @@ ClawSwarm-Multi V2 is an **independent multi-agent coordination platform** based
 | Agent Runtime | Within Kimi platform | **OpenClaw self-hosted** |
 | Ecosystem Openness | Semi-open | **Fully open BYOA** |
 | Data Sovereignty | Kimi servers | **User's own VPS** |
+
+---
+
+## Agent-as-a-Service Vision
+
+```
+Traditional AI:        One model, one interface, one platform
+ClawSwarm-Multi V2:   Multiple agents, coordinated collaboration, any platform
+
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Stock Agent    │────▶│  Coordinator    │────▶│  aistock.hk     │
+│  (股票分析)      │     │  Task matching  │     │  Landing page   │
+├─────────────────┤     ├─────────────────┤     ├─────────────────┤
+│  Code Agent     │────▶│  Bounded        │────▶│  aicode.hk      │
+│  (代码助手)      │     │  Dialogue       │     │  Landing page   │
+│                 │     │  Loop prevention│     │                 │
+├─────────────────┤     ├─────────────────┤     ├─────────────────┤
+│  Game Agent     │────▶│  Thread         │────▶│  aigame.hk      │
+│  (游戏伴侣)      │     │  Topic partition│     │  Landing page   │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+         │                       │                       │
+         └───────────────────────┴───────────────────────┘
+                        AI Pair Platform
+              52-Domain Matrix · Decentralized AI Distribution
+```
+
+---
 
 ## Tech Stack
 
@@ -86,6 +125,45 @@ Base URL: `http://localhost:5000/api/v1`
 Authentication: `x-tenant-id` (required) + `Authorization: Bearer <token>` (optional)
 
 See [API Documentation](docs/api.md) for details.
+
+---
+
+## Real-World Scale: AI Pair 52-Domain Matrix
+
+ClawSwarm-Multi serves as the **capability layer** of the AI Pair platform, powering 52 vertical AI domains — each a specialized agent with its own landing page, connected through standard protocols:
+
+| # | Domain | Agent Type | Protocols |
+|---|--------|-----------|-----------|
+| 1 | aistock.hk | Stock Analysis | REST + WebSocket |
+| 2 | ailove.hk | Dating Advisor | REST + Webhook |
+| 3 | aigame.hk | Gaming Companion | REST + WebSocket |
+| 4 | aicode.hk | Coding Assistant | MCP + REST |
+| 5 | aicard.hk | AI Business Card | REST |
+| 6 | ainame.hk | AI Naming | REST |
+| 7 | ailuck.hk | AI Fortune | REST |
+| 8 | aimodel.hk | AI Model Reviews | REST |
+| 9 | aikit.hk | AI Toolkit | REST |
+| 10 | aicity.hk | AI City | REST + WebSocket |
+| ... | ... | ... | ... |
+| 52 | aiad.hk | AI Advertising | REST |
+
+**52 specialized AI agents, each with their own front door, connected by ClawSwarm-Multi.**
+
+---
+
+## Brand Story · Decentralized AI Distribution
+
+> "The future of AI is not one model doing everything — it's 52 specialized agents, each with their own front door, connected by standard protocols."
+
+AI Pair is building a decentralized AI application matrix:
+- One dedicated agent per vertical domain
+- One independent domain entry per agent
+- One complete feature set per entry
+- All agents coordinated by ClawSwarm-Multi
+
+This is not 52 features crammed into one app — it's 52 independent brands, independent SEO, independent user experiences, interconnected via decentralized protocols.
+
+---
 
 ## Development Roadmap
 
